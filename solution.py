@@ -25,6 +25,8 @@ _TOTAL_BUDGET_S = float(os.environ.get("PC_TOTAL_BUDGET_S", "3300"))
 _EXPECTED_CALLS = int(os.environ.get("PC_EXPECTED_CALLS", "5"))
 _MAX_NEW_TOKENS = int(os.environ.get("PC_MAX_NEW_TOKENS", "6144"))
 _BATCH = int(os.environ.get("PC_BATCH", "24"))
+# Ablation knob: which perturbations to run ("none" = always False baseline).
+_PERTURBATIONS = os.environ.get("PC_PERTURBATIONS", "typo,distract,rename").split(",")
 _calls_done = 0
 
 _TYPO_SKIP = re.compile(r"[\d$\\{}^_=+\-*/()<>|]")
@@ -60,9 +62,13 @@ def perturb_distract(text: str) -> str:
 
 
 def variants(problem: str) -> list[str]:
-    out = [problem, perturb_typos(problem), perturb_distract(problem)]
+    out = [problem]
+    if "typo" in _PERTURBATIONS:
+        out.append(perturb_typos(problem))
+    if "distract" in _PERTURBATIONS:
+        out.append(perturb_distract(problem))
     renamed = perturb_rename(problem)
-    if renamed != problem:
+    if "rename" in _PERTURBATIONS and renamed != problem:
         out.append(renamed)
     return out
 
@@ -189,7 +195,7 @@ def are_robust(model_id: str, reasoning_effort: str = "default", problems: list[
         return []
     budget = _budget_for_this_call()
     _calls_done += 1
-    if budget < 60:
+    if budget < 60 or _PERTURBATIONS == ["none"]:
         return [False] * len(problems)
     groups = [variants(p) for p in problems]
     flat = [v for g in groups for v in g]

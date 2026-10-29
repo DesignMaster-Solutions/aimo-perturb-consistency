@@ -40,3 +40,14 @@ def test_mock_generation(monkeypatch):
         return ["</think>\\boxed{7}" if "Bob" not in p else "</think>\\boxed{8}" for p in prompts]
     monkeypatch.setattr(s, "_generate_all", fake)
     assert s.are_robust("m", "low", ["Find 3+4.", "Bob has 3+4 apples."]) == [True, False]
+
+
+def test_ablation_knob(monkeypatch):
+    p = "Alice has 3 apples."
+    monkeypatch.setattr(s, "_PERTURBATIONS", ["typo"])
+    assert len(s.variants(p)) == 2
+    monkeypatch.setattr(s, "_PERTURBATIONS", ["distract"])
+    assert s.variants(p)[1].endswith(s._DISTRACTOR)
+    monkeypatch.setattr(s, "_PERTURBATIONS", ["none"])
+    monkeypatch.setattr(s, "_TOTAL_BUDGET_S", 10_000.0)
+    assert s.are_robust("m", "low", ["a", "b"]) == [False, False]
