@@ -1,6 +1,6 @@
 # Perturbation self-consistency for the AIMO Interpretability Challenge
 
-Submission by Design Master Solutions LLC to the [AIMO Interpretability Challenge](https://aimo-interp.github.io/) (NeurIPS 2026), Small Model and Main tracks.
+Submission by Alan De Bortolo (info@designmastersolutions.com), Design Master Solutions LLC, to the [AIMO Interpretability Challenge](https://aimo-interp.github.io/) (NeurIPS 2026), Small Model and Main tracks.
 
 ## Idea
 
