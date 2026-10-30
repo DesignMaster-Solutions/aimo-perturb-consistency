@@ -36,7 +36,7 @@ def test_generation_failure_keeps_coverage(monkeypatch):
 
 def test_mock_generation(monkeypatch):
     monkeypatch.setattr(s, "_TOTAL_BUDGET_S", 10_000.0)
-    def fake(model_id, effort, prompts, budget):
+    def fake(model_id, effort, prompts, budget, sampled=None):
         return ["</think>\\boxed{7}" if "Bob" not in p else "</think>\\boxed{8}" for p in prompts]
     monkeypatch.setattr(s, "_generate_all", fake)
     assert s.are_robust("m", "low", ["Find 3+4.", "Bob has 3+4 apples."]) == [True, False]
@@ -51,3 +51,17 @@ def test_ablation_knob(monkeypatch):
     monkeypatch.setattr(s, "_PERTURBATIONS", ["none"])
     monkeypatch.setattr(s, "_TOTAL_BUDGET_S", 10_000.0)
     assert s.are_robust("m", "low", ["a", "b"]) == [False, False]
+
+def test_sampled_copies(monkeypatch):
+    monkeypatch.setattr(s, "_TOTAL_BUDGET_S", 10_000.0)
+    monkeypatch.setattr(s, "_PERTURBATIONS", ["typo"])
+    monkeypatch.setattr(s, "_SAMPLES", 2)
+    assert len(s.variants("Find x if 2x = 4 and Alice counts.")) == 4
+    seen = {}
+    def fake(model_id, effort, prompts, budget, sampled=None):
+        seen["flags"] = sampled
+        # problem 0: samples agree; problem 1: one sample disagrees
+        return ["\\boxed{2}"] * 4 + ["\\boxed{3}", "\\boxed{3}", "\\boxed{3}", "\\boxed{5}"]
+    monkeypatch.setattr(s, "_generate_all", fake)
+    assert s.are_robust("m", "default", ["p one", "p two"]) == [True, False]
+    assert seen["flags"] == [False, False, True, True] * 2

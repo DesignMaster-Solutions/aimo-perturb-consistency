@@ -27,6 +27,9 @@ _MAX_NEW_TOKENS = int(os.environ.get("PC_MAX_NEW_TOKENS", "6144"))
 _BATCH = int(os.environ.get("PC_BATCH", "24"))
 # Ablation knob: which perturbations to run ("none" = always False baseline).
 _PERTURBATIONS = os.environ.get("PC_PERTURBATIONS", "typo,distract,rename").split(",")
+# Sampled copies of the original problem (temperature 1.0, top-k 40, top-p 0.95,
+# as in the organizers' generation). 0 = greedy-only, the v1 method.
+_SAMPLES = int(os.environ.get("PC_SAMPLES", "0"))
 _calls_done = 0
 
 _TYPO_SKIP = re.compile(r"[\d$\\{}^_=+\-*/()<>|]")
@@ -62,6 +65,7 @@ def perturb_distract(text: str) -> str:
 
 
 def variants(problem: str) -> list[str]:
+    """Greedy prompts first (original, then perturbations); sampled copies go last."""
     out = [problem]
     if "typo" in _PERTURBATIONS:
         out.append(perturb_typos(problem))
@@ -70,7 +74,7 @@ def variants(problem: str) -> list[str]:
     renamed = perturb_rename(problem)
     if "rename" in _PERTURBATIONS and renamed != problem:
         out.append(renamed)
-    return out
+    return out + [problem] * _SAMPLES
 
 
 _BOXED = re.compile(r"\\boxed\s*\{")
@@ -140,7 +144,8 @@ def _format(tokenizer, text: str, reasoning_effort: str) -> str:
             return msgs[0]["content"]
 
 
-def _generate_all(model_id: str, reasoning_effort: str, prompts: list[str], budget_s: float) -> list[str]:
+def _generate_all(model_id: str, reasoning_effort: str, prompts: list[str], budget_s: float,
+                  sampled: list[bool] | None = None) -> list[str]:
     import torch
     from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -157,20 +162,26 @@ def _generate_all(model_id: str, reasoning_effort: str, prompts: list[str], budg
     texts: list[str] = [""] * len(prompts)
     try:
         # Longest prompts first keeps padding small inside each batch.
-        order = sorted(range(len(prompts)), key=lambda i: -len(prompts[i]))
-        for s in range(0, len(order), _BATCH):
+        # A batch never mixes greedy and sampled prompts (one generate() config each).
+        sampled = sampled or [False] * len(prompts)
+        order = sorted(range(len(prompts)), key=lambda i: (sampled[i], -len(prompts[i])))
+        cuts = [s for s in range(0, len(order), _BATCH)]
+        cuts = sorted(set(cuts + [sum(1 for f in sampled if not f)]) - {len(order)})
+        for n, s in enumerate(cuts):
             left = deadline - time.monotonic()
             if left < 20:
                 break
-            idx = order[s : s + _BATCH]
-            batches_left = (len(order) - s + _BATCH - 1) // _BATCH
+            idx = order[s : (cuts[n + 1] if n + 1 < len(cuts) else len(order))]
+            batches_left = len(cuts) - n
+            gen_kw = ({"do_sample": True, "temperature": 1.0, "top_k": 40, "top_p": 0.95}
+                      if sampled[idx[0]] else {"do_sample": False})
             enc = tok([_format(tok, prompts[i], reasoning_effort) for i in idx],
                       return_tensors="pt", padding=True).to(device)
             with torch.inference_mode():
                 out = model.generate(
                     **enc,
                     max_new_tokens=_MAX_NEW_TOKENS,
-                    do_sample=False,
+                    **gen_kw,
                     max_time=max(10.0, left / batches_left),
                     pad_token_id=tok.pad_token_id,
                 )
@@ -200,7 +211,8 @@ def are_robust(model_id: str, reasoning_effort: str = "default", problems: list[
     groups = [variants(p) for p in problems]
     flat = [v for g in groups for v in g]
     try:
-        texts = _generate_all(model_id, reasoning_effort, flat, budget)
+        flags = [i >= len(g) - _SAMPLES for g in groups for i in range(len(g))]
+        texts = _generate_all(model_id, reasoning_effort, flat, budget, flags)
     except Exception:  # noqa: BLE001 - never lose coverage on a failed batch
         return [False] * len(problems)
     preds, k = [], 0
