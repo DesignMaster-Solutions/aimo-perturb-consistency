@@ -45,12 +45,14 @@ Track & Variant & Codabench ID & Accuracy & Coverage \\
 Small & full (typo+distract+rename) & 1019144 & 0.571 & 1.00 \\
 Main & full (typo+distract+rename) & 1019467 & 0.619 & 1.00 \\
 Small & always \texttt{False} & 1019672 & 0.500 & 1.00 \\
-Small & typos only & -- & pending & -- \\
-Small & distractor only & -- & pending & -- \\
+Small & typos only & 1020199 & 0.571 & 1.00 \\
+Small & distractor only & 1020200 & 0.571 & 1.00 \\
 \bottomrule
 \end{tabular}
-\caption{Validation leaderboard results. Pending rows are filled from the Codabench API before the report deadline.}
+\caption{Validation leaderboard results, read from the Codabench API on 29 October 2026.}
 \end{table}
+
+\paragraph{Ablations.} Each single perturbation reaches the same Small-track accuracy as the full method (0.571 for typos only and for distractor only). On this validation set the three edits flag the same cases, so the signal comes from whether the greedy answer is stable at all, not from which edit breaks it; adding perturbations buys no accuracy, only compute.
 
 \section{Analysis of the public sample}
 The 28-row public sample (seven frontier models, AIMO-2025 reference problems) carries the per-case statistics behind the label. Two observations shape how this method should be read.
