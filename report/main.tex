@@ -20,7 +20,7 @@ Design Master Solutions LLC\\
 \maketitle
 
 \begin{abstract}
-The AIMO Interpretability Challenge asks whether a math-reasoning model's answer to a problem survives perturbations that leave the deductive chain intact. We submit a training-free, black-box method that measures this property directly at test time: the evaluated checkpoint answers the original problem and three rule-based perturbations (letter-swap typos, an irrelevant distractor sentence, character renaming) with greedy decoding, and the case is called robust only if every answer agrees. The method needs no labels, no weights access beyond generation and no learned readout, and it runs inside the 3600\,s budget with full coverage. On the Small Model Track validation leaderboard it reaches 0.571 accuracy (submission 1019144). We report this as a partly negative result: the always-\texttt{False} predictor reaches 0.68 on the public sample, and an analysis of that sample shows that robustness labels depend first on whether the model solves the original problem reliably, which a single greedy answer does not measure. We release code, tests and the ablation bundles.
+The AIMO Interpretability Challenge asks whether a math-reasoning model's answer to a problem survives perturbations that leave the deductive chain intact. We submit a training-free, black-box method that measures this property directly at test time: the evaluated checkpoint answers the original problem and three rule-based perturbations (letter-swap typos, an irrelevant distractor sentence, character renaming) with greedy decoding, and the case is called robust only if every answer agrees. The method needs no labels, no weights access beyond generation and no learned readout, and it runs inside the 3600\,s budget with full coverage. On the validation leaderboard it reaches 0.619 accuracy on the Main Model Track (submission 1019467) and 0.571 on the Small Model Track (submission 1019144), against 0.500 for the always-\texttt{False} predictor on the Small track (submission 1019672). We report this as a partly negative result: the gain over the majority class is modest, the always-\texttt{False} predictor reaches 0.68 on the public sample, and an analysis of that sample shows that robustness labels depend first on whether the model solves the original problem reliably, which a single greedy answer does not measure. We release code, tests and the ablation bundles.
 \end{abstract}
 
 \section{Introduction}
@@ -43,8 +43,8 @@ Main Track models: Qwen3.5-4B (thinking), Skywork-OR1-Math-7B, Olmo-3-7B-Think, 
 Track & Variant & Codabench ID & Accuracy & Coverage \\
 \midrule
 Small & full (typo+distract+rename) & 1019144 & 0.571 & 1.00 \\
-Main & full (typo+distract+rename) & 1019467 & pending & -- \\
-Small & always \texttt{False} & 1019672 & pending & -- \\
+Main & full (typo+distract+rename) & 1019467 & 0.619 & 1.00 \\
+Small & always \texttt{False} & 1019672 & 0.500 & 1.00 \\
 Small & typos only & -- & pending & -- \\
 Small & distractor only & -- & pending & -- \\
 \bottomrule
@@ -59,7 +59,7 @@ The 28-row public sample (seven frontier models, AIMO-2025 reference problems) c
 \paragraph{Implication.} The natural extension, which we leave as the next step, replaces the greedy agreement test with a sampled estimate of base accuracy on the original problem (temperature 1.0, top-$k$ 40, top-$p$ 0.95, as in the organizers' generation) and requires both high self-agreement and stability under perturbation.
 
 \section{Conclusion}
-Perturbation self-consistency is a cheap, label-free baseline that runs within budget on every evaluated model, but on the validation leaderboard it does not beat the majority class. The public sample explains why: the label is dominated by base-problem reliability, which greedy agreement does not measure. We offer the method and this negative result as a calibration point for black-box approaches.
+Perturbation self-consistency is a cheap, label-free baseline that runs within budget on every evaluated model, and on the validation leaderboard it beats the always-\texttt{False} predictor by 7 points on the Small track (0.571 against 0.500), with 0.619 on the Main track. The margin is small, and the public sample explains why it is not larger: the label is dominated by base-problem reliability, which greedy agreement does not measure. We offer the method and this negative result as a calibration point for black-box approaches.
 
 \section*{Reproducibility}
 Code (MIT): \url{https://github.com/DesignMaster-Solutions/aimo-perturb-consistency}. The submission bundle is \texttt{solution.py} alone (plus an empty \texttt{small.txt} for the Small track); ablation bundles are produced by \texttt{./ablate.sh typo distract none}. No training data and no training codebase are used. Tests: \texttt{uvx pytest -q tests}.
